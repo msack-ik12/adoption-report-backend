@@ -1,0 +1,11 @@
+user_id,name,email,role,account_holder,weekly_active,last_login,site
+U001,Sarah Johnson,sjohnson@muskegon.k12.mi.us,Office Manager,true,true,2025-02-20,Muskegon Heights Academy
+U002,Mike Torres,mtorres@muskegon.k12.mi.us,Office Manager,true,true,2025-02-19,Oakview Elementary
+U003,Lisa Chen,lchen@muskegon.k12.mi.us,Office Manager,true,false,2025-01-10,Nelson Elementary
+U004,James Wright,jwright@muskegon.k12.mi.us,Principal,true,true,2025-02-21,Muskegon Heights Academy
+U005,Karen Davis,kdavis@muskegon.k12.mi.us,Office Manager,true,true,2025-02-18,Muskegon Middle School
+U006,Tom Bradley,tbradley@muskegon.k12.mi.us,Teacher,false,true,2025-02-21,Oakview Elementary
+U007,Ana Ruiz,aruiz@muskegon.k12.mi.us,Office Manager,true,true,2025-02-17,Reeths-Puffer Intermediate
+U008,David Kim,dkim@muskegon.k12.mi.us,District Admin,true,true,2025-02-20,Central Office
+U009,Pat O'Brien,pobrien@muskegon.k12.mi.us,Office Manager,true,false,2025-01-28,Lakeside Elementary
+U010,Maria Gonzalez,mgonzalez@muskegon.k12.mi.us,Office Manager,true,true,2025-02-19,Muskegon High School

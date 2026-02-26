@@ -1,0 +1,9 @@
+task,status,completed_date,assigned_to,notes
+Account provisioning,Complete,2024-11-15,David Kim,All staff accounts created
+Admin training,Complete,2024-12-01,Jamie Lee,Two-day on-site training
+Office manager onboarding,In Progress,,Sarah Johnson,6 of 8 sites completed
+Data migration,Complete,2024-11-20,IK12 Support,Historical records imported
+Parent portal setup,Complete,2025-01-05,David Kim,Portal URL distributed to families
+Forms configuration,Complete,2024-12-10,Jamie Lee,All 12 core forms configured
+SSO integration,Complete,2024-11-18,IT Dept,Google Workspace SSO active
+Sendback workflow training,Not Started,,Jamie Lee,Scheduled for March

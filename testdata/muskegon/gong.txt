@@ -1,0 +1,21 @@
+## Muskegon ISD Quarterly Check-in — Feb 2025
+
+Attendees: Sarah Johnson (Muskegon ISD), David Kim (District Admin), Jamie Lee (IK12 CSM)
+
+### Adoption Progress
+District has seen strong uptake since the January training sessions. Office managers are reporting that the forms workflow has cut processing time by roughly 40%. Sarah mentioned that "the enrollment verification form alone has saved us hours each week."
+
+### Pain Points
+- Nelson Elementary and Lakeside Elementary still have low engagement; office managers there have not completed onboarding
+- Some confusion around the sendback workflow — when a form is returned to a parent, staff aren't always sure how to track it
+- Request for a bulk import feature for immunization records
+
+### Wins
+- Muskegon Heights Academy fully adopted within 3 weeks of launch
+- Free/Reduced Lunch Application volume is up 15% month-over-month, indicating parent adoption
+- District admin dashboard usage is daily
+
+### Next Steps
+- Schedule targeted training for Nelson and Lakeside office managers
+- Create a quick-reference guide for the sendback process
+- Explore bulk import capability for Q3 roadmap
