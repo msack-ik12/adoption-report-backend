@@ -4,6 +4,7 @@ import { corsMiddleware } from './utils/cors';
 import { logger } from './utils/logger';
 import healthRouter from './routes/health';
 import generateRouter from './routes/generate';
+import exportRouter from './routes/export';
 
 const app = express();
 
@@ -17,6 +18,7 @@ app.use(corsMiddleware);
 // Routes
 app.use(healthRouter);
 app.use(generateRouter);
+app.use(exportRouter);
 
 // Global error handler
 app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
