@@ -120,14 +120,19 @@ router.post('/generate', uploadFields, requireToken, requireDistrictName, async 
 
     // Build canonical response shape
     const now = new Date().toISOString();
+
+    // Spotlight: never null when requested — return empty onePage at minimum
+    const spotlightRequested = inputs.reportTypes.includes('spotlight');
+    const spotlightOnePage = llmReport.spotlight?.onePage ?? (spotlightRequested ? {} : null);
+
     const response: ApiResponse = {
       ok: true,
       report: {
         internalDeck: llmReport.internal
           ? { slides: llmReport.internal.slides }
           : null,
-        spotlight: llmReport.spotlight
-          ? { onePage: llmReport.spotlight.onePage }
+        spotlight: spotlightOnePage !== null
+          ? { onePage: spotlightOnePage }
           : null,
         diagnostics: llmReport.diagnostics,
       },
@@ -136,6 +141,7 @@ router.post('/generate', uploadFields, requireToken, requireDistrictName, async 
         districtName: llmReport.story?.districtName ?? inputs.districtName,
         generatedAt: llmReport.story?.generatedAt ?? now,
         frames: llmReport.story?.frames ?? [],
+        allowedDomains: normalizedPayload.derived.allowedDomains,
       },
       diagnostics: {
         usedMock,

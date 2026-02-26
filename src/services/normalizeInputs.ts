@@ -22,6 +22,7 @@ export interface DerivedMetrics {
   siteCoverage: { totalSites: number | null; activeSites: number | null; pct: number | null };
   userActivation: { totalUsers: number | null; activeUsers: number | null; pct: number | null };
   sendbacks: { totalSendbacks: number | null; topReasons: { reason: string; count: number }[] };
+  allowedDomains: string[];
   trends: Record<string, unknown>;
 }
 
@@ -232,6 +233,30 @@ function extractUserActivation(sigmaTables: ParsedTable[]): DerivedMetrics['user
   return { totalUsers, activeUsers, pct: totalUsers > 0 ? +((activeUsers / totalUsers) * 100).toFixed(1) : null };
 }
 
+function extractAllowedDomains(sigmaTables: ParsedTable[]): string[] {
+  const userTable = sigmaTables.find(t => t.tableType === 'user_activity');
+  if (!userTable) return ['example.org'];
+
+  const emailCol = userTable.headers.find(h => /email|e.?mail/i.test(h));
+  if (!emailCol) return ['example.org'];
+
+  const domainCounts: Record<string, number> = {};
+  for (const row of userTable.rawRows) {
+    const email = row[emailCol]?.trim();
+    if (!email) continue;
+    const atIdx = email.lastIndexOf('@');
+    if (atIdx < 1) continue;
+    const domain = email.slice(atIdx + 1).toLowerCase();
+    domainCounts[domain] = (domainCounts[domain] || 0) + 1;
+  }
+
+  const sorted = Object.entries(domainCounts).sort((a, b) => b[1] - a[1]);
+  if (sorted.length === 0) return ['example.org'];
+
+  // Return the most common domain (may expand later)
+  return [sorted[0][0]];
+}
+
 function extractSendbacks(sigmaTables: ParsedTable[]): DerivedMetrics['sendbacks'] {
   const sbTable = sigmaTables.find(t => t.tableType === 'sendbacks');
   if (!sbTable) return { totalSendbacks: null, topReasons: [] };
@@ -272,6 +297,7 @@ export function normalizeInputs(
     siteCoverage: extractSiteCoverage(sigmaTables),
     userActivation: extractUserActivation(sigmaTables),
     sendbacks: extractSendbacks(sigmaTables),
+    allowedDomains: extractAllowedDomains(sigmaTables),
     trends: {},
   };
 

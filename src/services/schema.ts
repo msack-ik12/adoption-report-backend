@@ -21,17 +21,12 @@ export const ChartSpecSchema = z.object({
   notes: z.string().optional(),
 });
 
-// ── Internal Deck ──────────────────────────────────────────────────
-export const SlideSchema = z.object({
-  slideNumber: z.number(),
+// ── Internal Deck — BackendSlide format ─────────────────────────────
+export const BackendSlideSchema = z.object({
+  id: z.string(),
   title: z.string(),
-  sections: z.array(z.object({
-    heading: z.string().optional(),
-    bullets: z.array(z.string()).optional(),
-    chartSpecs: z.array(ChartSpecSchema).optional(),
-    quotes: z.array(z.string()).optional(),
-    trackedClaims: z.array(TrackedClaimSchema).optional(),
-  })),
+  type: z.string(),
+  content: z.record(z.unknown()),
 });
 
 export const InternalDeckSchema = z.object({
@@ -39,31 +34,33 @@ export const InternalDeckSchema = z.object({
   title: z.string(),
   districtName: z.string(),
   generatedAt: z.string(),
-  slides: z.array(SlideSchema),
+  slides: z.array(BackendSlideSchema),
 });
 
 // ── External Spotlight ─────────────────────────────────────────────
+export const OnePageSchema = z.object({
+  header: z.string().optional(),
+  subheader: z.string().optional(),
+  kpis: z.array(z.object({
+    label: z.string(),
+    value: z.string(),
+    delta: z.string().optional(),
+  })).optional(),
+  charts: z.array(ChartSpecSchema).optional(),
+  quotes: z.array(z.object({
+    text: z.string(),
+    attribution: z.string().optional(),
+  })).optional(),
+  closingCta: z.string().optional(),
+  trackedClaims: z.array(TrackedClaimSchema).optional(),
+});
+
 export const SpotlightSchema = z.object({
   reportType: z.literal('spotlight'),
   title: z.string(),
   districtName: z.string(),
   generatedAt: z.string(),
-  onePage: z.object({
-    header: z.string(),
-    subheader: z.string().optional(),
-    kpis: z.array(z.object({
-      label: z.string(),
-      value: z.string(),
-      delta: z.string().optional(),
-    })),
-    charts: z.array(ChartSpecSchema).optional(),
-    quotes: z.array(z.object({
-      text: z.string(),
-      attribution: z.string().optional(),
-    })).optional(),
-    closingCta: z.string().optional(),
-    trackedClaims: z.array(TrackedClaimSchema).optional(),
-  }),
+  onePage: OnePageSchema,
 });
 
 // ── Story mode (Spotify-wrapped style) ─────────────────────────────
@@ -105,12 +102,13 @@ export const GeneratedReportSchema = z.object({
   diagnostics: DiagnosticsSchema,
 });
 
-// ── Recap (derived from story frames) ─────────────────────────────
+// ── Recap (derived from story frames + auth gate) ─────────────────
 export const RecapSchema = z.object({
   title: z.string(),
   districtName: z.string(),
   generatedAt: z.string(),
   frames: z.array(StoryFrameSchema),
+  allowedDomains: z.array(z.string()),
 });
 
 // ── Canonical API response envelope ───────────────────────────────
@@ -130,8 +128,8 @@ export const ApiDiagnosticsSchema = z.object({
 export const ApiResponseSchema = z.object({
   ok: z.literal(true),
   report: z.object({
-    internalDeck: z.object({ slides: z.array(SlideSchema) }).nullable(),
-    spotlight: z.object({ onePage: SpotlightSchema.shape.onePage }).nullable(),
+    internalDeck: z.object({ slides: z.array(BackendSlideSchema) }).nullable(),
+    spotlight: z.object({ onePage: OnePageSchema }).nullable(),
     diagnostics: DiagnosticsSchema,
   }),
   recap: RecapSchema,
@@ -142,8 +140,9 @@ export const ApiResponseSchema = z.object({
 export type SourceRef = z.infer<typeof SourceRefSchema>;
 export type TrackedClaim = z.infer<typeof TrackedClaimSchema>;
 export type ChartSpec = z.infer<typeof ChartSpecSchema>;
-export type Slide = z.infer<typeof SlideSchema>;
+export type BackendSlide = z.infer<typeof BackendSlideSchema>;
 export type InternalDeck = z.infer<typeof InternalDeckSchema>;
+export type OnePage = z.infer<typeof OnePageSchema>;
 export type Spotlight = z.infer<typeof SpotlightSchema>;
 export type StoryFrame = z.infer<typeof StoryFrameSchema>;
 export type Story = z.infer<typeof StorySchema>;

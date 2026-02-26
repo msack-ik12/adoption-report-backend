@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { GeneratedReportSchema } from '../services/schema';
 
 describe('GeneratedReportSchema', () => {
-  it('validates a complete sample report', () => {
+  it('validates a complete sample report with BackendSlide format', () => {
     const sample = {
       internal: {
         reportType: 'internal',
@@ -11,25 +11,31 @@ describe('GeneratedReportSchema', () => {
         generatedAt: '2024-01-15T00:00:00.000Z',
         slides: [
           {
-            slideNumber: 1,
+            id: 'exec_summary',
             title: 'Executive Summary',
-            sections: [
-              {
-                heading: 'Overview',
-                bullets: ['Bullet 1', 'Bullet 2'],
-                chartSpecs: [
-                  { chartType: 'bar', title: 'Users', data: { labels: ['A'], values: [10] } },
-                ],
-                quotes: ['Great product!'],
-                trackedClaims: [
-                  {
-                    claim: '70% adoption rate',
-                    confidence: 'High',
-                    sources: [{ tableId: 'sigma_abc', columns: ['weekly_active'] }],
-                  },
-                ],
-              },
-            ],
+            type: 'exec_summary',
+            content: {
+              bullets: ['Bullet 1', 'Bullet 2'],
+              chartSpecs: [
+                { chartType: 'bar', title: 'Users', data: { labels: ['A'], values: [10] } },
+              ],
+              quotes: ['Great product!'],
+              trackedClaims: [
+                {
+                  claim: '70% adoption rate',
+                  confidence: 'High',
+                  sources: [{ tableId: 'sigma_abc', columns: ['weekly_active'] }],
+                },
+              ],
+            },
+          },
+          {
+            id: 'adoption_metrics',
+            title: 'Adoption Status',
+            type: 'adoption_metrics',
+            content: {
+              bullets: ['80% weekly active'],
+            },
           },
         ],
       },
@@ -117,5 +123,25 @@ describe('GeneratedReportSchema', () => {
 
     const result = GeneratedReportSchema.safeParse(bad);
     expect(result.success).toBe(false);
+  });
+
+  it('validates spotlight with empty onePage (header optional)', () => {
+    const sample = {
+      spotlight: {
+        reportType: 'spotlight',
+        title: 'Test',
+        districtName: 'Test',
+        generatedAt: '2024-01-15T00:00:00.000Z',
+        onePage: {},
+      },
+      diagnostics: {
+        confidenceByClaim: [],
+        dataGaps: [],
+        sourceMap: [],
+      },
+    };
+
+    const result = GeneratedReportSchema.safeParse(sample);
+    expect(result.success).toBe(true);
   });
 });

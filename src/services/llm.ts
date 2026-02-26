@@ -1,6 +1,6 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import Anthropic from '@anthropic-ai/sdk';
-import { config } from '../config';
+import { config, GEMINI_FALLBACK_MODEL } from '../config';
 import { logger } from '../utils/logger';
 import { GeneratedReportSchema, GeneratedReport } from './schema';
 import { NormalizedPayload } from './normalizeInputs';
@@ -19,6 +19,61 @@ export interface LLMResult {
   error?: string;
 }
 
+// ── Gemini model validation ──────────────────────────────────────
+let validatedGeminiModel: string | null = null;
+
+async function resolveGeminiModel(): Promise<string> {
+  if (validatedGeminiModel) return validatedGeminiModel;
+
+  const requested = config.geminiModel;
+  const apiKey = config.geminiApiKey;
+
+  try {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`
+    );
+    if (!res.ok) {
+      logger.warn('Gemini models.list failed, using fallback model', {
+        status: res.status,
+        requested,
+        fallback: GEMINI_FALLBACK_MODEL,
+      });
+      validatedGeminiModel = GEMINI_FALLBACK_MODEL;
+      return validatedGeminiModel;
+    }
+
+    const data = (await res.json()) as {
+      models?: { name: string; supportedGenerationMethods?: string[] }[];
+    };
+    const models = data.models ?? [];
+    const match = models.find(
+      (m) =>
+        m.name === `models/${requested}` &&
+        m.supportedGenerationMethods?.includes('generateContent')
+    );
+
+    if (match) {
+      logger.info('Gemini model validated', { model: requested });
+      validatedGeminiModel = requested;
+    } else {
+      logger.warn('Gemini model not found or lacks generateContent support', {
+        requested,
+        fallback: GEMINI_FALLBACK_MODEL,
+      });
+      validatedGeminiModel = GEMINI_FALLBACK_MODEL;
+    }
+  } catch (err) {
+    logger.warn('Gemini models.list call failed, using fallback model', {
+      error: (err as Error).message,
+      fallback: GEMINI_FALLBACK_MODEL,
+    });
+    validatedGeminiModel = GEMINI_FALLBACK_MODEL;
+  }
+
+  return validatedGeminiModel;
+}
+
+// ── System prompt ────────────────────────────────────────────────
 const SYSTEM_PROMPT = `You are an expert K-12 edtech adoption analyst. Your job is to produce structured report content for an internal "Adoption Report Generator" app.
 
 You will receive a normalized JSON payload containing:
@@ -33,9 +88,27 @@ You MUST return ONLY valid JSON matching the requested schema. No prose, no mark
 REPORT TYPES you may be asked to generate (one or more):
 
 1. **internal** — Internal Adoption Report (slide deck structure)
-   - Produce an array of slides, each with title, sections containing bullets, chartSpecs, quotes, and trackedClaims
-   - Required slides: Executive Summary, Adoption Status, User Activation, Site Coverage, Forms Usage, Sendbacks Analysis, Gong Insights (if data available), Recommendations, Next Steps
-   - Every non-trivial claim must include confidence (High/Medium/Low) and source references (tableId, columns)
+   Each slide MUST use this exact shape:
+   {
+     "id": "<slug>",
+     "title": "<human-readable title>",
+     "type": "<same slug as id>",
+     "content": { ... slide-specific fields ... }
+   }
+
+   Use these slide IDs (include all that have relevant data):
+   - "exec_summary" — Executive Summary. content: { bullets: string[], trackedClaims: [...] }
+   - "adoption_metrics" — Adoption Status. content: { bullets: string[], chartSpecs: [...], trackedClaims: [...] }
+   - "user_activation" — User Activation. content: { bullets: string[], chartSpecs: [...] }
+   - "site_coverage" — Site Coverage. content: { bullets: string[], chartSpecs: [...] }
+   - "form_usage" — Forms Usage. content: { bullets: string[], chartSpecs: [...] }
+   - "sendbacks" — Sendbacks Analysis. content: { bullets: string[], chartSpecs: [...] }
+   - "gong_insights" — Gong Insights (only if gong data available). content: { bullets: string[], quotes: string[] }
+   - "root_cause" — Root Cause Analysis. content: { bullets: string[] }
+   - "recommendations" — Recommendations. content: { bullets: string[] }
+   - "next_steps" — Next Steps. content: { bullets: string[], nextActionCta?: string }
+
+   Every non-trivial claim must include confidence (High/Medium/Low) and source references (tableId, columns) inside trackedClaims within content.
 
 2. **spotlight** — External Customer Spotlight (one-page)
    - Produce a single onePage object with header, kpis, charts, quotes, closingCta
@@ -56,9 +129,9 @@ RULES:
 
 OUTPUT FORMAT (strict JSON, no markdown fences):
 {
-  "internal": { ... } | undefined,
-  "spotlight": { ... } | undefined,
-  "story": { ... } | undefined,
+  "internal": { "reportType": "internal", "title": "...", "districtName": "...", "generatedAt": "...", "slides": [...] } | undefined,
+  "spotlight": { "reportType": "spotlight", "title": "...", "districtName": "...", "generatedAt": "...", "onePage": {...} } | undefined,
+  "story": { "reportType": "story", "title": "...", "districtName": "...", "generatedAt": "...", "frames": [...] } | undefined,
   "diagnostics": {
     "confidenceByClaim": [...],
     "dataGaps": [...],
@@ -108,10 +181,10 @@ function getMockResponse(payload: NormalizedPayload, reportTypes: string[]): Gen
       generatedAt: now,
       slides: [
         {
-          slideNumber: 1,
+          id: 'exec_summary',
           title: 'Executive Summary',
-          sections: [{
-            heading: 'Overview',
+          type: 'exec_summary',
+          content: {
             bullets: [
               `${district} implementation analysis based on ${payload.files.sigma.length} data source(s)`,
               `Adoption status: ${payload.derived.adoptionMetrics.adoptionMet === true ? 'MET' : payload.derived.adoptionMetrics.adoptionMet === false ? 'NOT MET' : 'INSUFFICIENT DATA'}`,
@@ -122,13 +195,13 @@ function getMockResponse(payload: NormalizedPayload, reportTypes: string[]): Gen
               confidence: payload.derived.adoptionMetrics.adoptionConfidence,
               sources: payload.files.sigma.map(s => ({ tableId: s.tableId })),
             }],
-          }],
+          },
         },
         {
-          slideNumber: 2,
+          id: 'adoption_metrics',
           title: 'Adoption Status',
-          sections: [{
-            heading: 'Key Metrics',
+          type: 'adoption_metrics',
+          content: {
             bullets: [
               `Weekly active user percentage: ${payload.derived.adoptionMetrics.weeklyActiveUserPct ?? 'N/A'}%`,
               `All sites have active office managers: ${payload.derived.adoptionMetrics.allSitesHaveActiveOfficeManager ?? 'N/A'}`,
@@ -144,13 +217,13 @@ function getMockResponse(payload: NormalizedPayload, reportTypes: string[]): Gen
                 label: 'Weekly Active Users',
               },
             }],
-          }],
+          },
         },
         {
-          slideNumber: 3,
+          id: 'form_usage',
           title: 'Forms Usage',
-          sections: [{
-            heading: 'Top Forms',
+          type: 'form_usage',
+          content: {
             bullets: payload.derived.topForms.length > 0
               ? payload.derived.topForms.map(f => `${f.formName}: ${f.count} submissions`)
               : ['No forms usage data available'],
@@ -159,19 +232,32 @@ function getMockResponse(payload: NormalizedPayload, reportTypes: string[]): Gen
               title: 'Top Forms by Usage',
               data: payload.derived.topForms,
             }] : [],
-          }],
+          },
         },
         {
-          slideNumber: 4,
-          title: 'Recommendations & Next Steps',
-          sections: [{
-            heading: 'Recommended Actions',
+          id: 'recommendations',
+          title: 'Recommendations',
+          type: 'recommendations',
+          content: {
             bullets: [
               'Review data gaps identified in diagnostics',
               'Schedule follow-up with district stakeholders',
               'Monitor weekly active user trends',
             ],
-          }],
+          },
+        },
+        {
+          id: 'next_steps',
+          title: 'Next Steps',
+          type: 'next_steps',
+          content: {
+            bullets: [
+              'Address low-engagement sites with targeted training',
+              'Create quick-reference guides for sendback workflows',
+              'Schedule quarterly review with district leadership',
+            ],
+            nextActionCta: 'Schedule follow-up review',
+          },
         },
       ],
     };
@@ -219,9 +305,10 @@ async function callGeminiRaw(
   payload: NormalizedPayload,
   reportTypes: string[],
 ): Promise<string> {
+  const modelName = await resolveGeminiModel();
   const genAI = new GoogleGenerativeAI(config.geminiApiKey);
   const model = genAI.getGenerativeModel({
-    model: config.geminiModel,
+    model: modelName,
     systemInstruction: SYSTEM_PROMPT,
     generationConfig: {
       responseMimeType: 'application/json',
@@ -229,21 +316,20 @@ async function callGeminiRaw(
   });
 
   const userMessage = buildUserMessage(payload, reportTypes);
-  logger.info('Calling Gemini', { model: config.geminiModel, reportTypes, payloadSize: userMessage.length });
+  logger.info('Calling Gemini', { model: modelName, reportTypes, payloadSize: userMessage.length });
 
   const result = await model.generateContent(userMessage);
   return result.response.text();
 }
 
 async function callGeminiRetry(
-  payload: NormalizedPayload,
-  reportTypes: string[],
   failedText: string,
   validationError: string,
 ): Promise<string> {
+  const modelName = await resolveGeminiModel();
   const genAI = new GoogleGenerativeAI(config.geminiApiKey);
   const model = genAI.getGenerativeModel({
-    model: config.geminiModel,
+    model: modelName,
     systemInstruction: SYSTEM_PROMPT,
     generationConfig: {
       responseMimeType: 'application/json',
@@ -366,7 +452,7 @@ export async function callLLM(
     // One automatic retry with fix prompt
     try {
       const retryText = provider === 'gemini'
-        ? await callGeminiRetry(payload, reportTypes, rawText, firstMsg)
+        ? await callGeminiRetry(rawText, firstMsg)
         : await callClaudeRetry(rawText, firstMsg);
 
       const report = parseAndValidate(retryText);
