@@ -13,8 +13,8 @@ export const config = {
   geminiModel: process.env.GEMINI_MODEL || GEMINI_FALLBACK_MODEL,
   maxUploadMb: parseInt(process.env.MAX_UPLOAD_MB || '25', 10),
   get llmProvider(): 'gemini' | 'claude' | 'mock' {
-    if (this.geminiApiKey && this.geminiApiKey !== 'your-key-here') return 'gemini';
     if (this.anthropicApiKey && this.anthropicApiKey !== 'sk-ant-...') return 'claude';
+    if (this.geminiApiKey && this.geminiApiKey !== 'your-key-here') return 'gemini';
     return 'mock';
   },
   get isMockMode(): boolean {

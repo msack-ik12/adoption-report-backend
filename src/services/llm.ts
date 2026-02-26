@@ -111,12 +111,16 @@ REPORT TYPES you may be asked to generate (one or more):
    Every non-trivial claim must include confidence (High/Medium/Low) and source references (tableId, columns) inside trackedClaims within content.
 
 2. **spotlight** — External Customer Spotlight (one-page)
-   - Produce a single onePage object with header, kpis, charts, quotes, closingCta
+   - Produce a single onePage object with these fields (all plain strings, NOT objects):
+     header: string, subheader: string, kpis: [{label, value, delta?}], charts: [...], quotes: [{text, attribution?}], closingCta: string
+   - IMPORTANT: header and subheader must be plain strings, e.g. "Muskegon ISD — Transforming Operations"
+   - trackedClaims is optional; if included, each must have: { claim: string, confidence: "High"|"Medium"|"Low", sources: [{ tableId: string }] }
    - Focus on positive outcomes, real metrics, and customer voice
-   - Include trackedClaims for verifiability
 
 3. **story** — Story Mode (Spotify-wrapped style frames)
-   - Produce an array of frames with templateType (intro/stat/quote/chart/milestone/cta), headline, narrative, chartSpec
+   - Produce an array of frames, each MUST include:
+     { frameNumber: <integer starting at 1>, templateType: "intro"|"stat"|"quote"|"chart"|"milestone"|"cta", headline: string, narrative?: string, chartSpec?: {...}, nextActionCta?: string }
+   - frameNumber is REQUIRED and must be a sequential integer (1, 2, 3, ...)
    - Make it engaging, data-driven, and sequentially compelling
    - End with a CTA frame
 

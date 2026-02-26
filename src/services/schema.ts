@@ -10,7 +10,7 @@ export const SourceRefSchema = z.object({
 export const TrackedClaimSchema = z.object({
   claim: z.string(),
   confidence: z.enum(['High', 'Medium', 'Low']),
-  sources: z.array(SourceRefSchema),
+  sources: z.array(SourceRefSchema).default([]),
 });
 
 // ── Chart spec (frontend renders) ──────────────────────────────────
@@ -38,13 +38,19 @@ export const InternalDeckSchema = z.object({
 });
 
 // ── External Spotlight ─────────────────────────────────────────────
+// Coerce {text:"..."} → "..." for fields Claude sometimes wraps in an object
+const coerceString = z.preprocess(
+  (val) => (typeof val === 'object' && val !== null && 'text' in val ? (val as Record<string, unknown>).text : val),
+  z.string(),
+);
+
 export const OnePageSchema = z.object({
-  header: z.string().optional(),
-  subheader: z.string().optional(),
+  header: coerceString.optional(),
+  subheader: coerceString.optional(),
   kpis: z.array(z.object({
     label: z.string(),
     value: z.string(),
-    delta: z.string().optional(),
+    delta: z.string().nullish(),
   })).optional(),
   charts: z.array(ChartSpecSchema).optional(),
   quotes: z.array(z.object({
@@ -65,7 +71,7 @@ export const SpotlightSchema = z.object({
 
 // ── Story mode (Spotify-wrapped style) ─────────────────────────────
 export const StoryFrameSchema = z.object({
-  frameNumber: z.number(),
+  frameNumber: z.number().optional(),
   templateType: z.enum(['intro', 'stat', 'quote', 'chart', 'milestone', 'cta']),
   headline: z.string(),
   narrative: z.string().optional(),
@@ -84,14 +90,14 @@ export const StorySchema = z.object({
 
 // ── Diagnostics ────────────────────────────────────────────────────
 export const DiagnosticsSchema = z.object({
-  confidenceByClaim: z.array(TrackedClaimSchema),
-  dataGaps: z.array(z.string()),
+  confidenceByClaim: z.array(TrackedClaimSchema).default([]),
+  dataGaps: z.array(z.string()).default([]),
   sourceMap: z.array(z.object({
-    tableId: z.string(),
-    filename: z.string(),
-    tableType: z.string(),
-    rowCount: z.number(),
-  })),
+    tableId: z.string().optional(),
+    filename: z.string().optional(),
+    tableType: z.string().optional(),
+    rowCount: z.number().optional(),
+  })).default([]),
 });
 
 // ── Top-level generated report (LLM output shape) ────────────────
