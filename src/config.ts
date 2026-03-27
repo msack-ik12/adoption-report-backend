@@ -11,6 +11,9 @@ export const config = {
   anthropicModel: process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-20250514',
   geminiApiKey: process.env.GEMINI_API_KEY || '',
   geminiModel: process.env.GEMINI_MODEL || GEMINI_FALLBACK_MODEL,
+  gongAccessKey: process.env.GONG_ACCESS_KEY || '',
+  gongAccessKeySecret: process.env.GONG_ACCESS_KEY_SECRET || '',
+  gongBaseUrl: process.env.GONG_BASE_URL || 'https://us-11211.api.gong.io/v2',
   maxUploadMb: parseInt(process.env.MAX_UPLOAD_MB || '25', 10),
   get llmProvider(): 'gemini' | 'claude' | 'mock' {
     if (this.anthropicApiKey && this.anthropicApiKey !== 'sk-ant-...') return 'claude';

@@ -5,10 +5,12 @@ import { config } from '../config';
 import { logger } from '../utils/logger';
 import { requireToken, requireDistrictName } from '../utils/validate';
 import { parseCsvBuffer, ParsedTable } from '../services/parseCsv';
+import { parseWorkbookBuffer } from '../services/parseWorkbook';
 import { parseGongBuffer, parseGongText, ParsedGong } from '../services/parseGong';
 import { normalizeInputs, FastFacts, NormalizedPayload } from '../services/normalizeInputs';
 import { callLLM } from '../services/llm';
 import { ApiResponse } from '../services/schema';
+import { isGongConfigured, getTranscriptsAsText } from '../services/gongApi';
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -29,7 +31,7 @@ interface MulterFiles {
   checklistFile?: Express.Multer.File[];
 }
 
-function parseRequestInputs(req: Request): {
+async function parseRequestInputs(req: Request): Promise<{
   districtName: string;
   campaignName?: string;
   reportTypes: string[];
@@ -37,8 +39,8 @@ function parseRequestInputs(req: Request): {
   sigmaTables: ParsedTable[];
   gong: ParsedGong | null;
   checklistTable: ParsedTable | null;
-} {
-  const { districtName, campaignName, reportTypes: reportTypesRaw, gongText, fastFacts: fastFactsRaw } = req.body;
+}> {
+  const { districtName, campaignName, reportTypes: reportTypesRaw, gongText, gongCallIds: gongCallIdsRaw, fastFacts: fastFactsRaw } = req.body;
   const files = (req.files || {}) as MulterFiles;
 
   // Report types
@@ -56,23 +58,50 @@ function parseRequestInputs(req: Request): {
     }
   }
 
-  // Parse sigma CSV files
+  // Parse sigma files (CSV or XLS/XLSX workbook)
   const sigmaTables: ParsedTable[] = [];
   if (files.sigmaFiles) {
     for (const file of files.sigmaFiles) {
       logger.info('Processing sigma file', { filename: file.originalname, size: file.size });
-      sigmaTables.push(parseCsvBuffer(file.buffer, file.originalname));
+      const ext = file.originalname.toLowerCase();
+      if (ext.endsWith('.xlsx') || ext.endsWith('.xls')) {
+        const sheets = parseWorkbookBuffer(file.buffer, file.originalname);
+        logger.info('Workbook split into sheets', {
+          filename: file.originalname,
+          sheetCount: sheets.length,
+          sheetNames: sheets.map(s => s.filename),
+        });
+        sigmaTables.push(...sheets);
+      } else {
+        sigmaTables.push(parseCsvBuffer(file.buffer, file.originalname));
+      }
     }
   }
 
-  // Parse gong
+  // Parse gong — priority: uploaded file > pasted text > API call IDs
   let gong: ParsedGong | null = null;
   if (files.gongFile && files.gongFile.length > 0) {
     const gf = files.gongFile[0];
     logger.info('Processing gong file', { filename: gf.originalname, size: gf.size });
-    gong = parseGongBuffer(gf.buffer, gf.originalname);
+    gong = await parseGongBuffer(gf.buffer, gf.originalname);
   } else if (gongText && typeof gongText === 'string' && gongText.trim().length > 0) {
     gong = parseGongText(gongText);
+  } else if (gongCallIdsRaw) {
+    // Accept gongCallIds as JSON array string or comma-separated
+    let callIds: string[] = [];
+    try {
+      callIds = typeof gongCallIdsRaw === 'string' ? JSON.parse(gongCallIdsRaw) : gongCallIdsRaw;
+    } catch {
+      callIds = String(gongCallIdsRaw).split(',').map(s => s.trim()).filter(Boolean);
+    }
+
+    if (callIds.length > 0 && isGongConfigured()) {
+      logger.info('Fetching Gong transcripts via API', { callIds: callIds.length });
+      const transcriptText = await getTranscriptsAsText(callIds);
+      if (transcriptText.trim().length > 0) {
+        gong = parseGongText(transcriptText);
+      }
+    }
   }
 
   // Parse checklist
@@ -93,7 +122,7 @@ router.post('/generate', uploadFields, requireToken, requireDistrictName, async 
 
   try {
     const parseStart = Date.now();
-    const inputs = parseRequestInputs(req);
+    const inputs = await parseRequestInputs(req);
     const parseMs = Date.now() - parseStart;
 
     logger.info('Generate request', {
@@ -172,7 +201,7 @@ router.post('/generate', uploadFields, requireToken, requireDistrictName, async 
 // ── POST /parse-only ───────────────────────────────────────────────
 router.post('/parse-only', uploadFields, requireToken, requireDistrictName, async (req: Request, res: Response) => {
   try {
-    const inputs = parseRequestInputs(req);
+    const inputs = await parseRequestInputs(req);
 
     const normalizedPayload: NormalizedPayload = normalizeInputs(
       inputs.districtName,

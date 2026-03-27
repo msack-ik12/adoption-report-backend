@@ -103,7 +103,11 @@ REPORT TYPES you may be asked to generate (one or more):
    - "site_coverage" — Site Coverage. content: { bullets: string[], chartSpecs: [...] }
    - "form_usage" — Forms Usage. content: { bullets: string[], chartSpecs: [...] }
    - "sendbacks" — Sendbacks Analysis. content: { bullets: string[], chartSpecs: [...] }
-   - "gong_insights" — Gong Insights (only if gong data available). content: { bullets: string[], quotes: string[] }
+   - "gong_insights" — Gong Insights. REQUIRED if any Gong call data is provided. content: { bullets: string[], quotes: [{text: string, attribution?: string}] }
+     * Extract the most compelling DIRECT QUOTES (paraphrased for clarity and brevity) from the Gong data
+     * Include 2-4 quotes that showcase customer voice, measurable outcomes, or workflow improvements
+     * For attribution, use the speaker's name and role if identifiable, otherwise use "District Staff"
+     * Bullets should summarize key themes: what's working, pain points resolved, and time/effort savings
    - "root_cause" — Root Cause Analysis. content: { bullets: string[] }
    - "recommendations" — Recommendations. content: { bullets: string[] }
    - "next_steps" — Next Steps. content: { bullets: string[], nextActionCta?: string }
@@ -112,8 +116,10 @@ REPORT TYPES you may be asked to generate (one or more):
 
 2. **spotlight** — External Customer Spotlight (one-page)
    - Produce a single onePage object with these fields (all plain strings, NOT objects):
-     header: string, subheader: string, kpis: [{label, value, delta?}], charts: [...], quotes: [{text, attribution?}], closingCta: string
+     header: string, subheader: string, kpis: [{label, value, delta?}], charts: [...], quotes: [{text: string, attribution?: string}], closingCta: string
    - IMPORTANT: header and subheader must be plain strings, e.g. "Muskegon ISD — Transforming Operations"
+   - charts follow the same CHART RULES above (no pie charts)
+   - quotes MUST be drawn from Gong data if available — paraphrase for clarity and brevity
    - trackedClaims is optional; if included, each must have: { claim: string, confidence: "High"|"Medium"|"Low", sources: [{ tableId: string }] }
    - Focus on positive outcomes, real metrics, and customer voice
 
@@ -124,10 +130,18 @@ REPORT TYPES you may be asked to generate (one or more):
    - Make it engaging, data-driven, and sequentially compelling
    - End with a CTA frame
 
+CHART RULES:
+- chartSpecs should specify chartType, title, and data: { categories: string[], values: number[] }
+- Allowed chartType values: "bar", "line", "gauge", "number", "donut"
+- NEVER use chartType "pie" — pie charts are poor data visualization. Use "bar" instead.
+- "donut" is ONLY acceptable when comparing exactly 2 categories or showing progress toward a goal
+- "gauge" and "number" are for single KPI values: data: { value: number, target?: number, max?: number }
+- "bar" charts should have 3-8 categories maximum for readability
+- "line" charts are for time-series data only (monthly trends, etc.)
+
 RULES:
 - Reference data by tableId from the payload
 - If data is insufficient for a claim, set confidence to "Low" and note the gap
-- chartSpecs should specify chartType, title, and data structure the frontend can render
 - All numbers must come from the provided data; do not fabricate statistics
 - Include a diagnostics object with: confidenceByClaim, dataGaps, sourceMap
 

@@ -70,7 +70,7 @@ export function detectTableType(headers: string[], sampleValues: string[]): Tabl
   return bestScore >= 2 ? bestMatch : 'unknown';
 }
 
-function computeSummary(tableType: TableType, rows: Record<string, string>[], headers: string[]): Record<string, unknown> {
+export function computeSummary(tableType: TableType, rows: Record<string, string>[], headers: string[]): Record<string, unknown> {
   const summary: Record<string, unknown> = {
     totalRows: rows.length,
     columns: headers,
