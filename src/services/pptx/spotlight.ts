@@ -1,11 +1,13 @@
 /**
- * Generates a branded Customer Spotlight one-pager PPTX.
+ * V2 — Generates a branded Customer Spotlight one-pager PPTX.
  *
- * Single slide with:
- *   Full-width indigo header → KPI stat cards → chart + quotes → closing CTA
+ * Single slide matching gold-standard layout:
+ *   Blue header bar → intro paragraph → "By the Numbers" stat cards
+ *   (accent on TOP) → two-column: chart left + quotes right →
+ *   separator → "Looking Forward" footer
  */
 import PptxGenJS from 'pptxgenjs';
-import { BRAND } from './brand';
+import { BRAND, FULL_W } from './brand';
 import type { OnePage } from '../schema';
 
 export interface SpotlightOptions {
@@ -13,117 +15,127 @@ export interface SpotlightOptions {
   onePage: OnePage;
 }
 
-export async function generateSpotlight(
-  options: SpotlightOptions,
-): Promise<Buffer> {
+const M = BRAND.layout.margin;
+
+export async function generateSpotlight(options: SpotlightOptions): Promise<Buffer> {
   const pres = new PptxGenJS();
 
-  pres.defineLayout({
-    name: 'IK12_16x9',
-    width: BRAND.slide.width,
-    height: BRAND.slide.height,
-  });
+  pres.defineLayout({ name: 'IK12_16x9', width: BRAND.slide.width, height: BRAND.slide.height });
   pres.layout = 'IK12_16x9';
   pres.author = 'iKnowAll12';
   pres.title = `${options.districtName} \u2014 Customer Spotlight`;
 
   const slide = pres.addSlide();
+  slide.background = { color: BRAND.colors.white };
   const { onePage } = options;
 
-  // ── Header bar (full width, indigo) ───────────────────────────────
+  // ── Header bar (blue, full width) ─────────────────────────────────
   slide.addShape('rect', {
-    x: 0,
-    y: 0,
-    w: BRAND.slide.width,
-    h: 1.1,
+    x: 0, y: 0, w: BRAND.slide.width, h: 0.9,
     fill: { color: BRAND.colors.indigo },
   });
 
+  // "Informed K12 Spotlight" title
+  slide.addText('Informed K12 Spotlight', {
+    x: M, y: 0.12, w: 4, h: 0.3,
+    fontSize: 16,
+    fontFace: BRAND.fonts.primary,
+    color: BRAND.colors.white,
+    bold: true,
+  });
+
+  // District name in green
+  slide.addText(options.districtName, {
+    x: M, y: 0.42, w: 5, h: 0.35,
+    fontSize: 14,
+    fontFace: BRAND.fonts.primary,
+    color: BRAND.colors.teal,
+    bold: true,
+  });
+
+  // Date right-aligned
   slide.addText(
-    onePage.header || `${options.districtName} \u2014 Customer Spotlight`,
+    new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
     {
-      x: BRAND.layout.margin,
-      y: 0.15,
-      w: BRAND.slide.width - BRAND.layout.margin * 2,
-      h: 0.5,
-      fontSize: 22,
+      x: 6, y: 0.12, w: 3.5, h: 0.3,
+      fontSize: BRAND.fontSize.small,
       fontFace: BRAND.fonts.primary,
       color: BRAND.colors.white,
-      bold: true,
+      align: 'right',
     },
   );
 
+  let y = 1.0;
+
+  // ── Intro paragraph ───────────────────────────────────────────────
   if (onePage.subheader) {
     slide.addText(onePage.subheader, {
-      x: BRAND.layout.margin,
-      y: 0.6,
-      w: BRAND.slide.width - BRAND.layout.margin * 2,
-      h: 0.4,
-      fontSize: 10,
+      x: M, y, w: FULL_W, h: 0.55,
+      fontSize: BRAND.fontSize.bullet,
       fontFace: BRAND.fonts.primary,
-      color: BRAND.colors.white,
+      color: BRAND.colors.darkText,
+      valign: 'top',
     });
+    y += 0.55;
   }
 
-  let y = 1.3;
-
-  // ── KPI stat cards ────────────────────────────────────────────────
+  // ── "By the Numbers" stat cards ───────────────────────────────────
   const kpis = onePage.kpis || [];
   if (kpis.length > 0) {
-    const cardCount = Math.min(kpis.length, 4);
-    const totalWidth = BRAND.slide.width - BRAND.layout.margin * 2;
+    // Section label
+    slide.addText('By the Numbers', {
+      x: M, y, w: 3, h: 0.3,
+      fontSize: BRAND.fontSize.sectionLabel,
+      fontFace: BRAND.fonts.primary,
+      color: BRAND.colors.tealDark,
+      bold: true,
+    });
+    y += 0.32;
+
+    // Stat cards with TOP accent bar (matching gold standard)
+    const count = Math.min(kpis.length, 4);
     const gap = 0.15;
-    const cardWidth = (totalWidth - gap * (cardCount - 1)) / cardCount;
+    const cardW = (FULL_W - gap * (count - 1)) / count;
+    const cardH = 0.85;
 
     kpis.slice(0, 4).forEach((kpi, i) => {
-      const x = BRAND.layout.margin + i * (cardWidth + gap);
+      const x = M + i * (cardW + gap);
 
       // Card bg
       slide.addShape('rect', {
-        x,
-        y,
-        w: cardWidth,
-        h: 0.75,
+        x, y, w: cardW, h: cardH,
         fill: { color: BRAND.colors.cardBg },
         rectRadius: 0.04,
       });
 
-      // Left accent
+      // Top accent bar (green)
       slide.addShape('rect', {
-        x,
-        y,
-        w: 0.03,
-        h: 0.75,
+        x, y, w: cardW, h: BRAND.layout.accentBarH,
         fill: { color: BRAND.colors.teal },
+        rectRadius: 0.03,
       });
 
-      // Value
+      // Value (green number)
       slide.addText(kpi.value, {
-        x: x + 0.12,
-        y,
-        w: cardWidth - 0.2,
-        h: 0.45,
-        fontSize: 24,
+        x: x + 0.1, y: y + 0.1, w: cardW - 0.2, h: 0.42,
+        fontSize: BRAND.fontSize.statValue,
         fontFace: BRAND.fonts.primary,
-        color: BRAND.colors.indigo,
+        color: BRAND.colors.tealDark,
         bold: true,
         valign: 'bottom',
       });
 
       // Label
       slide.addText(kpi.label, {
-        x: x + 0.12,
-        y: y + 0.45,
-        w: cardWidth - 0.2,
-        h: 0.25,
-        fontSize: 8,
+        x: x + 0.1, y: y + 0.55, w: cardW - 0.2, h: 0.22,
+        fontSize: BRAND.fontSize.statLabel,
         fontFace: BRAND.fonts.primary,
         color: BRAND.colors.secondaryText,
         valign: 'top',
       });
     });
 
-    y += 0.95;
+    y += cardH + 0.2;
   }
 
   // ── Two-column: chart (left) + quotes (right) ─────────────────────
@@ -132,183 +144,122 @@ export async function generateSpotlight(
   const hasChart = charts.length > 0;
   const hasQuotes = quotes.length > 0;
 
-  if (hasChart && hasQuotes) {
-    // Left half: bar chart
-    const chart = charts[0];
-    const cd = chart.data as { labels?: string[]; values?: number[] } | undefined;
-    if (cd?.labels && cd?.values) {
-      slide.addChart('bar', [{ name: chart.title || 'Data', labels: cd.labels, values: cd.values }], {
-        x: BRAND.layout.margin,
-        y,
-        w: 4.5,
-        h: 2,
-        showTitle: true,
-        title: chart.title || '',
-        titleFontSize: 9,
-        titleColor: BRAND.colors.darkText,
-        chartColors: [BRAND.colors.indigo],
-        catAxisLabelFontSize: 7,
-        catAxisLabelColor: BRAND.colors.secondaryText,
-        valAxisLabelFontSize: 7,
-        valAxisLabelColor: BRAND.colors.secondaryText,
-        showValue: true,
-        dataLabelColor: BRAND.colors.darkText,
-        dataLabelFontSize: 7,
-      });
-    }
+  if (hasChart || hasQuotes) {
+    const leftX = M;
+    const leftW = 4.5;
+    const rightX = 5.2;
+    const rightW = 4.3;
 
-    // Right half: quotes
-    let quoteY = y;
-    for (const quote of quotes.slice(0, 2)) {
-      slide.addShape('rect', {
-        x: 5.3,
-        y: quoteY,
-        w: 4.2,
-        h: 0.8,
-        fill: { color: BRAND.colors.cardBg },
-        rectRadius: 0.04,
+    if (hasChart) {
+      // Section label
+      slide.addText('Top Forms Used', {
+        x: leftX, y, w: leftW, h: 0.25,
+        fontSize: BRAND.fontSize.sectionLabel,
+        fontFace: BRAND.fonts.primary,
+        color: BRAND.colors.tealDark,
+        bold: true,
       });
 
-      slide.addShape('rect', {
-        x: 5.3,
-        y: quoteY,
-        w: 0.03,
-        h: 0.8,
-        fill: { color: BRAND.colors.indigo },
-      });
-
-      const quoteLines: PptxGenJS.TextProps[] = [
-        {
-          text: `\u201C${quote.text}\u201D`,
-          options: {
-            fontSize: 9,
-            fontFace: BRAND.fonts.primary,
-            color: BRAND.colors.darkText,
-            italic: true,
-          },
-        },
-      ];
-      if (quote.attribution) {
-        quoteLines.push({
-          text: `\n\u2014 ${quote.attribution}`,
-          options: {
-            fontSize: 8,
-            fontFace: BRAND.fonts.primary,
-            color: BRAND.colors.secondaryText,
-          },
+      const chart = charts[0];
+      const cd = chart.data as { labels?: string[]; categories?: string[]; values?: number[] } | undefined;
+      const chartLabels = cd?.labels ?? cd?.categories;
+      if (chartLabels && cd?.values) {
+        slide.addChart('bar', [{ name: chart.title || 'Data', labels: chartLabels, values: cd.values }], {
+          x: leftX, y: y + 0.28, w: leftW, h: 1.6,
+          showTitle: false,
+          chartColors: [BRAND.colors.indigo],
+          catAxisLabelFontSize: 7,
+          catAxisLabelColor: BRAND.colors.secondaryText,
+          valAxisLabelFontSize: 7,
+          valAxisLabelColor: BRAND.colors.secondaryText,
+          showValue: true,
+          dataLabelColor: BRAND.colors.darkText,
+          dataLabelFontSize: 7,
         });
       }
-
-      slide.addText(quoteLines, {
-        x: 5.5,
-        y: quoteY,
-        w: 3.8,
-        h: 0.8,
-        valign: 'middle',
-      });
-
-      quoteY += 0.95;
     }
 
-    y += 2.2;
-  } else if (hasChart) {
-    const chart = charts[0];
-    const cd = chart.data as { labels?: string[]; values?: number[] } | undefined;
-    if (cd?.labels && cd?.values) {
-      slide.addChart('bar', [{ name: chart.title || 'Data', labels: cd.labels, values: cd.values }], {
-        x: BRAND.layout.margin + 0.5,
-        y,
-        w: BRAND.slide.width - BRAND.layout.margin * 2 - 1,
-        h: 2.2,
-        showTitle: true,
-        title: chart.title || '',
-        titleFontSize: 10,
-        chartColors: [BRAND.colors.indigo],
-        showValue: true,
-      });
-    }
-    y += 2.4;
-  } else if (hasQuotes) {
-    for (const quote of quotes.slice(0, 2)) {
-      const qw = BRAND.slide.width - BRAND.layout.margin * 2 - 0.6;
-      const qx = BRAND.layout.margin + 0.3;
-
-      slide.addShape('rect', {
-        x: qx,
-        y,
-        w: qw,
-        h: 0.7,
-        fill: { color: BRAND.colors.cardBg },
-        rectRadius: 0.04,
+    if (hasQuotes) {
+      slide.addText('What Users Are Saying', {
+        x: rightX, y, w: rightW, h: 0.25,
+        fontSize: BRAND.fontSize.sectionLabel,
+        fontFace: BRAND.fonts.primary,
+        color: BRAND.colors.tealDark,
+        bold: true,
       });
 
-      slide.addShape('rect', {
-        x: qx,
-        y,
-        w: 0.03,
-        h: 0.7,
-        fill: { color: BRAND.colors.indigo },
-      });
+      let qy = y + 0.3;
+      for (const quote of quotes.slice(0, 2)) {
+        const qH = 0.7;
 
-      const quoteLines: PptxGenJS.TextProps[] = [
-        {
-          text: `\u201C${quote.text}\u201D`,
-          options: {
-            fontSize: 10,
-            fontFace: BRAND.fonts.primary,
-            color: BRAND.colors.darkText,
-            italic: true,
-          },
-        },
-      ];
-      if (quote.attribution) {
-        quoteLines.push({
-          text: `\n\u2014 ${quote.attribution}`,
-          options: {
-            fontSize: 9,
-            fontFace: BRAND.fonts.primary,
-            color: BRAND.colors.secondaryText,
-          },
+        // Card bg
+        slide.addShape('rect', {
+          x: rightX, y: qy, w: rightW, h: qH,
+          fill: { color: BRAND.colors.cardBg },
+          rectRadius: 0.04,
         });
+
+        // Left accent (green)
+        slide.addShape('rect', {
+          x: rightX, y: qy, w: 0.05, h: qH,
+          fill: { color: BRAND.colors.green },
+          rectRadius: 0.025,
+        });
+
+        const quoteLines: PptxGenJS.TextProps[] = [
+          {
+            text: `\u201C${quote.text}\u201D`,
+            options: {
+              fontSize: BRAND.fontSize.bullet,
+              fontFace: BRAND.fonts.primary,
+              color: BRAND.colors.darkText,
+              italic: true,
+            },
+          },
+        ];
+        if (quote.attribution) {
+          quoteLines.push({
+            text: `\n\u2014 ${quote.attribution}`,
+            options: {
+              fontSize: BRAND.fontSize.small,
+              fontFace: BRAND.fonts.primary,
+              color: BRAND.colors.green,
+            },
+          });
+        }
+
+        slide.addText(quoteLines, {
+          x: rightX + 0.18, y: qy, w: rightW - 0.3, h: qH,
+          valign: 'middle',
+        });
+
+        qy += qH + 0.1;
       }
-
-      slide.addText(quoteLines, {
-        x: qx + 0.2,
-        y,
-        w: qw - 0.4,
-        h: 0.7,
-        valign: 'middle',
-      });
-
-      y += 0.85;
     }
+
+    y += 2.0;
   }
 
-  // ── Closing CTA bar ───────────────────────────────────────────────
-  if (onePage.closingCta) {
-    const ctaY = Math.max(y, BRAND.slide.height - 0.7);
+  // ── Separator + "Looking Forward" footer ──────────────────────────
+  const footerY = Math.max(y, BRAND.slide.height - 0.65);
 
-    slide.addShape('rect', {
-      x: 0,
-      y: ctaY,
-      w: BRAND.slide.width,
-      h: 0.5,
-      fill: { color: BRAND.colors.teal },
-    });
+  // Separator line
+  slide.addShape('rect', {
+    x: M, y: footerY - 0.15, w: FULL_W, h: 0.015,
+    fill: { color: BRAND.colors.borderGray },
+  });
 
-    slide.addText(onePage.closingCta, {
-      x: BRAND.layout.margin,
-      y: ctaY,
-      w: BRAND.slide.width - BRAND.layout.margin * 2,
-      h: 0.5,
-      fontSize: 11,
-      fontFace: BRAND.fonts.primary,
-      color: BRAND.colors.white,
-      bold: true,
-      align: 'center',
-      valign: 'middle',
-    });
-  }
+  // CTA / closing text
+  const ctaText = onePage.closingCta || 'Contact us to learn how your district can achieve similar results.';
+  slide.addText(ctaText, {
+    x: M, y: footerY, w: FULL_W, h: 0.4,
+    fontSize: BRAND.fontSize.small,
+    fontFace: BRAND.fonts.primary,
+    color: BRAND.colors.secondaryText,
+    italic: true,
+    align: 'center',
+    valign: 'middle',
+  });
 
   const buffer = await pres.write({ outputType: 'nodebuffer' });
   return buffer as Buffer;

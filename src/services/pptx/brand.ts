@@ -6,54 +6,80 @@
 
 export const BRAND = {
   // Slide dimensions (16:9 widescreen)
-  slide: {
-    width: 10,
-    height: 5.625,
-  },
+  slide: { width: 10, height: 5.625 },
 
-  // Colors (no '#' — pptxgenjs convention)
+  // ── Colors ────────────────────────────────────────────────────────
   colors: {
+    // Core brand
     indigo: '3C4BA8',
+    indigoLight: '4658AF',
     teal: '0BD49E',
     tealDark: '0DB49E',
     orange: 'F98653',
     red: 'F44567',
+    green: '5AB023',
+
+    // Text
     darkText: '2C2D3E',
     secondaryText: '6B6C78',
     lightText: '9FA0AB',
     white: 'FFFFFF',
+
+    // Backgrounds & borders
     cardBg: 'F5F5F5',
+    statBg: 'E9EAEB',
     borderGray: 'E9EAEB',
     tableBg: 'F8F9FA',
-    successGreen: '22C55E',
-    warningAmber: 'F59E0B',
+
+    // Semantic callout tints (pale backgrounds)
+    paleGreen: 'F0FDF4',
+    paleRed: 'FFF0F0',
+    paleYellow: 'FFF8E6',
+    paleTeal: 'F0FDFB',
   },
 
-  // Typography
-  fonts: {
-    primary: 'Arial',
-  },
+  // Priority → color mapping (for recommendation cards)
+  priority: {
+    high: { accent: 'F44567', bg: 'FFF0F0', text: 'FFFFFF' },
+    medium: { accent: 'F98653', bg: 'FFF8E6', text: 'FFFFFF' },
+    low: { accent: '52D2BC', bg: 'F0FDFB', text: 'FFFFFF' },
+  } as Record<string, { accent: string; bg: string; text: string }>,
 
-  // Font sizes (points)
+  // ── Typography ────────────────────────────────────────────────────
+  fonts: { primary: 'Arial' },
+
   fontSize: {
-    heroTitle: 36,
-    slideTitle: 28,
-    sectionTitle: 20,
-    heroSubtitle: 16,
+    heroTitle: 40,
+    slideTitle: 32,
+    sectionLabel: 14,
+    heroSubtitle: 24,
+    cardTitle: 16,
+    cardSubtitle: 13,
     body: 12,
     bullet: 11,
-    cardValue: 32,
-    cardLabel: 10,
+    statValue: 22,
+    statLabel: 10,
     small: 9,
     tiny: 8,
+    badge: 8,
   },
 
-  // Layout positions (inches)
+  // ── Layout (inches) ───────────────────────────────────────────────
   layout: {
     margin: 0.5,
-    titleY: 0.3,
+    rightEdge: 9.5,       // margin + usable width
+    titleBarY: 0.3,
+    titleBarH: 0.6,
     contentStartY: 1.1,
-    accentBarHeight: 0.04,
-    cardHeight: 0.9,
+    accentBarH: 0.06,
+    cardH: 0.9,
+
+    // Two-column positions
+    colLeft: { x: 0.5, w: 4.3 },
+    colRight: { x: 5.2, w: 4.3 },
+    colFullW: 9.0,
   },
 } as const;
+
+/** Shorthand for the full usable width */
+export const FULL_W = BRAND.layout.colFullW;
