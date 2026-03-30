@@ -103,6 +103,77 @@ export async function testConnection(): Promise<{ ok: boolean; error?: string }>
   }
 }
 
+// Cache for district names (expensive to fetch, rarely changes)
+let districtCache: { names: string[]; expiresAt: number } | null = null;
+
+/**
+ * Fetch the list of valid district names by exporting the User Data table
+ * from the DATA page and extracting unique Organization Name values.
+ * Results are cached for 4 hours.
+ */
+export async function getDistrictNames(): Promise<string[]> {
+  if (districtCache && Date.now() < districtCache.expiresAt) {
+    return districtCache.names;
+  }
+
+  const workbookId = config.sigmaWorkbookId;
+  // User Data table on the DATA page — has "Organization Name (Invalid source)" column
+  const elementId = 'vmNX4nAcUd';
+
+  const token = await getAccessToken();
+  const exportBody = { elementId, format: { type: 'csv' } };
+
+  const exportRes = await sigmaFetch<{ queryId: string }>(
+    `/v2/workbooks/${workbookId}/export`,
+    { method: 'POST', body: JSON.stringify(exportBody) },
+  );
+
+  const { queryId } = exportRes;
+  const downloadUrl = `${baseUrl()}/v2/query/${queryId}/download`;
+
+  for (let i = 0; i < 25; i++) {
+    await new Promise(r => setTimeout(r, 3000));
+    const dlRes = await fetch(downloadUrl, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!dlRes.ok) continue;
+
+    const csv = await dlRes.text();
+    const lines = csv.split('\n').filter(l => l.trim());
+    if (lines.length < 2) {
+      logger.warn('Sigma: User Data export returned empty');
+      return [];
+    }
+
+    const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+    const nameIdx = headers.findIndex(h =>
+      h.toLowerCase().includes('organization name')
+    );
+    if (nameIdx === -1) {
+      logger.warn('Sigma: Organization Name column not found', { headers });
+      return [];
+    }
+
+    const names = new Set<string>();
+    for (let row = 1; row < lines.length; row++) {
+      // Simple CSV parse — handle quoted values
+      const cols = lines[row].split(',').map(c => c.trim().replace(/^"|"$/g, ''));
+      const name = cols[nameIdx];
+      if (name && name !== 'null') names.add(name);
+    }
+
+    const sorted = [...names].sort();
+    logger.info('Sigma: fetched district names', { count: sorted.length });
+
+    // Cache for 4 hours
+    districtCache = { names: sorted, expiresAt: Date.now() + 4 * 60 * 60 * 1000 };
+    return sorted;
+  }
+
+  logger.warn('Sigma: timed out fetching district names');
+  return [];
+}
+
 /** Discover workbook structure: pages, elements, and their IDs. */
 export async function discoverWorkbook(): Promise<{ pages: SigmaPage[] }> {
   const workbookId = config.sigmaWorkbookId;
