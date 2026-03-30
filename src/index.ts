@@ -6,6 +6,7 @@ import healthRouter from './routes/health';
 import generateRouter from './routes/generate';
 import exportRouter from './routes/export';
 import gongRouter from './routes/gong';
+import sigmaRouter from './routes/sigma';
 
 const app = express();
 
@@ -21,6 +22,7 @@ app.use(healthRouter);
 app.use(generateRouter);
 app.use(exportRouter);
 app.use(gongRouter);
+app.use(sigmaRouter);
 
 // Global error handler
 app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
