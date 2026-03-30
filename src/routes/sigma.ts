@@ -8,6 +8,7 @@ import {
   pullDistrictData,
   getDistrictNames,
 } from '../services/sigmaApi';
+import { cacheSigmaTables } from '../services/sigmaCache';
 
 const router = Router();
 
@@ -58,9 +59,21 @@ router.post('/sigma/pull', requireToken, async (req: Request, res: Response) => 
 
   try {
     const tables = await pullDistrictData(districtName.trim());
+
+    // Cache full tables so /generate can use them without re-upload
+    cacheSigmaTables(districtName.trim(), tables);
+
+    // Return metadata to frontend (no need to send full data back)
     res.json({
       ok: true,
-      tables,
+      tables: tables.map(t => ({
+        tableId: t.tableId,
+        filename: t.filename,
+        tableType: t.tableType,
+        headers: t.headers,
+        rowCount: t.rowCount,
+        sampleRows: t.sampleRows,
+      })),
       count: tables.length,
       tableTypes: tables.map(t => t.tableType),
     });

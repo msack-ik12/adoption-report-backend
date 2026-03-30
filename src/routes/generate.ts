@@ -11,6 +11,7 @@ import { normalizeInputs, FastFacts, NormalizedPayload } from '../services/norma
 import { callLLM } from '../services/llm';
 import { ApiResponse } from '../services/schema';
 import { isGongConfigured, getTranscriptsAsText } from '../services/gongApi';
+import { getCachedSigmaTables } from '../services/sigmaCache';
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -58,8 +59,13 @@ async function parseRequestInputs(req: Request): Promise<{
     }
   }
 
-  // Parse sigma files (CSV or XLS/XLSX workbook)
-  const sigmaTables: ParsedTable[] = [];
+  // Parse sigma files — prefer cached Sigma API pull, fall back to uploaded files
+  let sigmaTables: ParsedTable[] = [];
+  const cached = getCachedSigmaTables(districtName);
+  if (cached && cached.length > 0) {
+    logger.info('Using cached Sigma data', { district: districtName, tableCount: cached.length });
+    sigmaTables = cached;
+  }
   if (files.sigmaFiles) {
     for (const file of files.sigmaFiles) {
       logger.info('Processing sigma file', { filename: file.originalname, size: file.size });
