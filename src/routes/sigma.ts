@@ -102,19 +102,27 @@ router.get('/sigma/districts', requireToken, async (_req: Request, res: Response
   }
 });
 
-// ── GET /sigma/cache/:district/:filename ──────────────────────────────
+// ── GET /sigma/download ───────────────────────────────────────────────
 // Download a cached Sigma CSV file for inspection.
-router.get('/sigma/cache/:district/:filename', requireToken, (req: Request, res: Response) => {
-  const { district, filename } = req.params;
+// Query params: ?district=...&filename=...
+router.get('/sigma/download', requireToken, (req: Request, res: Response) => {
+  const district = req.query.district as string;
+  const filename = req.query.filename as string;
+
+  if (!district || !filename) {
+    res.status(400).json({ ok: false, error: 'district and filename query params required' });
+    return;
+  }
+
   const tables = getCachedSigmaTables(district);
   if (!tables) {
-    res.status(404).json({ ok: false, error: 'No cached data for this district' });
+    res.status(404).json({ ok: false, error: 'No cached data for this district. Pull data first.' });
     return;
   }
 
   const table = tables.find(t => t.filename === filename);
   if (!table) {
-    res.status(404).json({ ok: false, error: 'Table not found in cache' });
+    res.status(404).json({ ok: false, error: `Table "${filename}" not found in cache` });
     return;
   }
 
