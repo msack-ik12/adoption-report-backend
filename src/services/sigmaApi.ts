@@ -1,6 +1,6 @@
 import { config } from '../config';
 import { logger } from '../utils/logger';
-import { parseCsvBuffer, ParsedTable } from './parseCsv';
+import { parseCsvBuffer, ParsedTable, TableType } from './parseCsv';
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -223,16 +223,16 @@ export async function exportElement(
 // The key elements on the Adoption page that map to our report data model.
 // These were discovered via GET /sigma/discover and verified to respond to
 // the district control filter.
-const ADOPTION_PAGE_ELEMENTS: { elementId: string; name: string }[] = [
-  { elementId: '_sMwbRWevf', name: 'Campaign Metrics' },
-  { elementId: '9xvoPy_Dki', name: 'User Activity' },
-  { elementId: 'cSqWVAm97F', name: 'Send Back Messages' },
-  { elementId: 'mrPZ1mBawp', name: 'Send Back Counts with Reason' },
-  { elementId: 'ueWaENQgMN', name: 'Weekly Submissions' },
-  { elementId: 'w0zVULoNGK', name: 'Completion Rates by Step' },
-  { elementId: 'HJSH41obHS', name: 'Initiator Types by Campaign' },
-  { elementId: 'aV-kS7Mp50', name: 'Users Not Activated' },
-  { elementId: 'iG-rZbjsz5', name: 'User Permissions' },
+const ADOPTION_PAGE_ELEMENTS: { elementId: string; name: string; tableType: TableType }[] = [
+  { elementId: '_sMwbRWevf', name: 'Campaign Metrics', tableType: 'campaign_metrics' },
+  { elementId: '9xvoPy_Dki', name: 'User Activity', tableType: 'user_activity' },
+  { elementId: 'cSqWVAm97F', name: 'Send Back Messages', tableType: 'sendbacks' },
+  { elementId: 'mrPZ1mBawp', name: 'Send Back Counts with Reason', tableType: 'sendbacks' },
+  { elementId: 'ueWaENQgMN', name: 'Weekly Submissions', tableType: 'forms_usage' },
+  { elementId: 'w0zVULoNGK', name: 'Completion Rates by Step', tableType: 'forms_usage' },
+  { elementId: 'HJSH41obHS', name: 'Initiator Types by Campaign', tableType: 'site_activation' },
+  { elementId: 'aV-kS7Mp50', name: 'Users Not Activated', tableType: 'user_activity' },
+  { elementId: 'iG-rZbjsz5', name: 'User Permissions', tableType: 'user_activity' },
 ];
 
 /**
@@ -268,6 +268,8 @@ export async function pullDistrictData(districtName: string): Promise<ParsedTabl
       }
       const buffer = Buffer.from(csv, 'utf-8');
       const table = parseCsvBuffer(buffer, `${el.name}.csv`);
+      // Override auto-detected type with the known type for this element
+      table.tableType = el.tableType;
       if (table.rowCount > 0) {
         tables.push(table);
       } else {

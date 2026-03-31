@@ -102,4 +102,38 @@ router.get('/sigma/districts', requireToken, async (_req: Request, res: Response
   }
 });
 
+// ── GET /sigma/cache/:district/:filename ──────────────────────────────
+// Download a cached Sigma CSV file for inspection.
+router.get('/sigma/cache/:district/:filename', requireToken, (req: Request, res: Response) => {
+  const { district, filename } = req.params;
+  const { getCachedSigmaTables: getCache } = require('../services/sigmaCache');
+  const tables = getCache(district);
+  if (!tables) {
+    res.status(404).json({ ok: false, error: 'No cached data for this district' });
+    return;
+  }
+
+  const table = tables.find((t: any) => t.filename === filename);
+  if (!table) {
+    res.status(404).json({ ok: false, error: 'Table not found in cache' });
+    return;
+  }
+
+  // Reconstruct CSV from rawRows
+  const rows = table.rawRows ?? table.sampleRows ?? [];
+  const csv = [
+    table.headers.join(','),
+    ...rows.map((row: Record<string, string>) =>
+      table.headers.map((h: string) => {
+        const val = row[h] ?? '';
+        return val.includes(',') || val.includes('"') ? `"${val.replace(/"/g, '""')}"` : val;
+      }).join(',')
+    ),
+  ].join('\n');
+
+  res.setHeader('Content-Type', 'text/csv');
+  res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+  res.send(csv);
+});
+
 export default router;
