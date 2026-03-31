@@ -11,7 +11,8 @@ import { normalizeInputs, FastFacts, NormalizedPayload } from '../services/norma
 import { callLLM } from '../services/llm';
 import { ApiResponse } from '../services/schema';
 import { isGongConfigured, getTranscriptsAsText } from '../services/gongApi';
-import { getCachedSigmaTables } from '../services/sigmaCache';
+import { getCachedSigmaTables, cacheSigmaTables } from '../services/sigmaCache';
+import { isSigmaConfigured, pullDistrictData } from '../services/sigmaApi';
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -59,12 +60,25 @@ async function parseRequestInputs(req: Request): Promise<{
     }
   }
 
-  // Parse sigma files — prefer cached Sigma API pull, fall back to uploaded files
+  // Parse sigma files — prefer cached Sigma pull, then on-demand pull, then uploaded files
   let sigmaTables: ParsedTable[] = [];
   const cached = getCachedSigmaTables(districtName);
   if (cached && cached.length > 0) {
     logger.info('Using cached Sigma data', { district: districtName, tableCount: cached.length });
     sigmaTables = cached;
+  } else if (isSigmaConfigured()) {
+    // Cache miss — pull on-demand from Sigma API
+    try {
+      logger.info('Sigma cache miss — pulling on-demand', { district: districtName });
+      const pulled = await pullDistrictData(districtName);
+      if (pulled.length > 0) {
+        cacheSigmaTables(districtName, pulled);
+        sigmaTables = pulled;
+        logger.info('Sigma on-demand pull complete', { district: districtName, tableCount: pulled.length });
+      }
+    } catch (err) {
+      logger.warn('Sigma on-demand pull failed, continuing with uploaded files', { error: String(err) });
+    }
   }
   if (files.sigmaFiles) {
     for (const file of files.sigmaFiles) {
