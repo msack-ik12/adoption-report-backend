@@ -8,7 +8,7 @@ import {
   pullDistrictData,
   getDistrictNames,
 } from '../services/sigmaApi';
-import { cacheSigmaTables } from '../services/sigmaCache';
+import { cacheSigmaTables, getCachedSigmaTables } from '../services/sigmaCache';
 
 const router = Router();
 
@@ -106,14 +106,13 @@ router.get('/sigma/districts', requireToken, async (_req: Request, res: Response
 // Download a cached Sigma CSV file for inspection.
 router.get('/sigma/cache/:district/:filename', requireToken, (req: Request, res: Response) => {
   const { district, filename } = req.params;
-  const { getCachedSigmaTables: getCache } = require('../services/sigmaCache');
-  const tables = getCache(district);
+  const tables = getCachedSigmaTables(district);
   if (!tables) {
     res.status(404).json({ ok: false, error: 'No cached data for this district' });
     return;
   }
 
-  const table = tables.find((t: any) => t.filename === filename);
+  const table = tables.find(t => t.filename === filename);
   if (!table) {
     res.status(404).json({ ok: false, error: 'Table not found in cache' });
     return;
