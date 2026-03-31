@@ -248,12 +248,22 @@ export async function pullDistrictData(districtName: string): Promise<ParsedTabl
 
   const tables: ParsedTable[] = [];
 
-  // Export sequentially to respect rate limits and share cached token
+  // Export sequentially to respect rate limits and share cached token.
+  // Retry once on empty result — the Sigma API is flaky and intermittently
+  // returns 0 bytes for elements that have data.
   for (const el of ADOPTION_PAGE_ELEMENTS) {
     try {
-      const csv = await exportElement(el.elementId, districtName);
+      let csv = await exportElement(el.elementId, districtName);
+
+      // Retry once if empty — Sigma API frequently returns 0 bytes spuriously
       if (!csv || !csv.trim()) {
-        logger.info('Sigma: empty export (no data for district)', { element: el.name });
+        logger.info('Sigma: empty export, retrying once', { element: el.name });
+        await new Promise(r => setTimeout(r, 2000));
+        csv = await exportElement(el.elementId, districtName);
+      }
+
+      if (!csv || !csv.trim()) {
+        logger.info('Sigma: empty after retry (no data for district)', { element: el.name });
         continue;
       }
       const buffer = Buffer.from(csv, 'utf-8');

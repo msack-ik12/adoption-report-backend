@@ -80,8 +80,17 @@ async function parseRequestInputs(req: Request): Promise<{
       logger.warn('Sigma on-demand pull failed, continuing with uploaded files', { error: String(err) });
     }
   }
+
+  // Process uploaded files — skip tiny placeholder files from the frontend
+  // when we already have cached Sigma data (placeholders are ~12 bytes).
+  const hasCachedSigma = sigmaTables.length > 0;
   if (files.sigmaFiles) {
     for (const file of files.sigmaFiles) {
+      // Skip placeholder CSV files created by the frontend for visual display
+      if (hasCachedSigma && file.size < 50 && file.originalname.endsWith('.csv')) {
+        logger.info('Skipping placeholder file (cached data used)', { filename: file.originalname, size: file.size });
+        continue;
+      }
       logger.info('Processing sigma file', { filename: file.originalname, size: file.size });
       const ext = file.originalname.toLowerCase();
       if (ext.endsWith('.xlsx') || ext.endsWith('.xls')) {
